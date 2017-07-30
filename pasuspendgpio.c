@@ -104,19 +104,19 @@ static void sink_info_callback(pa_context *c, const pa_sink_info *i, int eol, vo
 		switch (i->state)
 		{
 			case PA_SINK_INVALID_STATE:
-				printf("Invalid\n");
+				fprintf(stderr, "Invalid\n");
 				break;
 			case PA_SINK_RUNNING:
-				printf("Running\n");
+				fprintf(stderr, "Running\n");
 				break;
 			case PA_SINK_IDLE:
-				printf("Idle\n");
+				fprintf(stderr, "Idle\n");
 				break;
 			case PA_SINK_SUSPENDED:
-				printf("Suspended\n");
+				fprintf(stderr, "Suspended\n");
 				break;
 			default:
-				printf("Unknown\n");
+				fprintf(stderr, "Unknown\n");
 		}
 
 	set_state(i->state == PA_SINK_SUSPENDED ? SUSPENDED : UNSUSPENDED);
@@ -142,7 +142,7 @@ static void context_subscribe_callback(pa_context *c, int success, void *userdat
 	}
 
 	if(verbose)
-		printf("Subscribed to sink events\n");
+		fprintf(stderr, "Subscribed to sink events\n");
 
 	pa_operation_unref(pa_context_get_sink_info_by_name(c, sinkname, sink_info_callback, userdata));
 
@@ -164,7 +164,7 @@ static void context_state_callback(pa_context *c, void *userdata)
 			assert(c);
 
 			if(verbose)
-				printf("Connection established.\n");
+				fprintf(stderr, "Connection established.\n");
 
 			pa_context_set_subscribe_callback(c, context_event_callback, userdata);
 			pa_operation_unref(pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_SINK, context_subscribe_callback, userdata));
@@ -192,7 +192,7 @@ fail:
 static void exit_signal_callback(pa_mainloop_api*m, pa_signal_event *e, int sig, void *userdata)
 {
 	if(verbose)
-		printf("Got signal, exiting.\n");
+		fprintf(stderr, "Got signal, exiting.\n");
 	quit(0);
 }
 

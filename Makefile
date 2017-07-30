@@ -8,3 +8,6 @@ pasuspendgpio.o: pasuspendgpio.c
 
 clean:
 	rm -f *.o pasuspendgpio
+
+install: pasuspendgpio
+	cp pasuspendgpio /usr/local/bin/
