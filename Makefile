@@ -1,10 +1,20 @@
+ifeq ($(DEBUG),Y)
+	CFLAGS+=-ggdb -O0 -Wall -DDEBUG
+else
+	CFLAGS+=-Wall
+endif
+
+LDFLAGS+=-lpulse
+
+.PHONY: clean all
+
 all: pasuspendgpio
 
 pasuspendgpio: pasuspendgpio.o
-	gcc -o pasuspendgpio pasuspendgpio.o -lpulse
+	${CC} -o pasuspendgpio pasuspendgpio.o ${LDFLAGS}
 
 pasuspendgpio.o: pasuspendgpio.c
-	gcc -c pasuspendgpio.c -Wall -ggdb
+	${CC} -c pasuspendgpio.c ${CFLAGS}
 
 clean:
 	rm -f *.o pasuspendgpio
