@@ -32,13 +32,13 @@ void gpio_export(int gpio)
 	snprintf(buf, sizeof(buf), "/sys/class/gpio/gpio%d/direction", gpio);
 
 	if(!(f=fopen(buf, "w")))
-		err(1, buf);
+		err(1, "%s", buf);
 
 	if(fprintf(f, "out\n") <= 0)
-		err(1, buf);
+		err(1, "%s", buf);
 
 	if(fclose(f))
-		err(1, buf);
+		err(1, "%s", buf);
 }
 
 void gpio_unexport(int gpio)
@@ -61,13 +61,13 @@ void gpio_write(int gpio, int value)
 	snprintf(buf, sizeof(buf), "/sys/class/gpio/gpio%d/value", gpio);
 
 	if(!(f=fopen(buf, "w")))
-		err(1, buf);
+		err(1, "%s", buf);
 
 	if(fprintf(f, "%d\n", value) <= 0)
-		err(1, buf);
+		err(1, "%s", buf);
 
 	if(fclose(f))
-		err(1, buf);
+		err(1, "%s", buf);
 }
 
 /* A shortcut for terminating the application */
