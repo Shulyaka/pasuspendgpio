@@ -1,4 +1,4 @@
-language: cpp
+language: c
 dist: trusty
 script: make
 matrix:
@@ -19,17 +19,17 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - clang-3.9
-            - llvm-3.9-dev
+            - clang-4.0
+            - llvm-4.0-dev
             - libstdc++-6-dev
             - libpulse-dev
       env:
-        - COMPILER=clang-3.9
+        - COMPILER=clang-4.0
 env:
   global:
     - CFLAGS="$CFLAGS${CFLAGS:+ }-Werror"
     - CXXFLAGS="$CXXFLAGS${CXXFLAGS:+ }-Werror"
 before_install:
-  - export CC="$COMPILER"
   - export CXX="$COMPILER"
+  - export CC="$COMPILER"
   - ${CXX} --version
