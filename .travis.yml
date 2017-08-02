@@ -19,12 +19,11 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - clang-4.0
-            - llvm-4.0-dev
-            - libstdc++-6-dev
+            - clang-3.9
+            - llvm-3.9-dev
             - libpulse-dev
       env:
-        - COMPILER=clang-4.0
+        - COMPILER=clang-3.9
 env:
   global:
     - CFLAGS="$CFLAGS${CFLAGS:+ }-Werror"
