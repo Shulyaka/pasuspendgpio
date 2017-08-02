@@ -9,10 +9,10 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - g++-6
+            - gcc-6
             - libpulse-dev
       env:
-        - COMPILER=g++-6
+        - COMPILER=gcc-6
     - compiler: clang
       addons:
         apt:
@@ -24,7 +24,7 @@ matrix:
             - libstdc++-6-dev
             - libpulse-dev
       env:
-        - COMPILER=clang++-3.9
+        - COMPILER=clang-3.9
 env:
   global:
     - CFLAGS="$CFLAGS${CFLAGS:+ }-Werror"
