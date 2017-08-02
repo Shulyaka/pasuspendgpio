@@ -6,7 +6,7 @@ endif
 
 LDFLAGS+=-lpulse
 
-.PHONY: clean all
+.PHONY: clean all install
 
 all: pasuspendgpio
 
