@@ -1,29 +1,19 @@
 language: c
-dist: trusty
+os: linux
+dist: bionic
 script: make
-matrix:
+addons:
+  apt:
+    packages:
+    - libpulse-dev
+jobs:
   include:
     - compiler: gcc
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - gcc-6
-            - libpulse-dev
       env:
-        - COMPILER=gcc-6
+        - COMPILER=gcc
     - compiler: clang
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - clang-3.9
-            - llvm-3.9-dev
-            - libpulse-dev
       env:
-        - COMPILER=clang-3.9
+        - COMPILER=clang
 env:
   global:
     - CFLAGS="$CFLAGS${CFLAGS:+ }-Werror"
