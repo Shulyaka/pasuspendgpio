@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <err.h>
+#include <gpiod.h>
 
 #include <pulse/pulseaudio.h>
 
 
 static char *sinkname = NULL;
-int gpio = 0;
+struct gpiod_line *line = NULL;
 uint32_t sindex = 0;
+const char *consumer = NULL;
 
 static pa_context *context = NULL;
 static pa_mainloop_api *mainloop_api = NULL;
@@ -16,65 +18,31 @@ enum state {UNKNOWN, SUSPENDED, UNSUSPENDED} state=UNKNOWN;
 
 static int verbose = 1;
 
-void gpio_export(int gpio)
-{
-	FILE* f;
-	if(!(f=fopen("/sys/class/gpio/export", "w")))
-		err(1, "/sys/class/gpio/export");
-
-	if(fprintf(f, "%d\n", gpio) <= 0)
-		err(1, "/sys/class/gpio/export");
-
-	if(fclose(f))
-		err(1, "/sys/class/gpio/export");
-
-	char buf[256];
-	snprintf(buf, sizeof(buf), "/sys/class/gpio/gpio%d/direction", gpio);
-
-	if(!(f=fopen(buf, "w")))
-		err(1, "%s", buf);
-
-	if(fprintf(f, "out\n") <= 0)
-		err(1, "%s", buf);
-
-	if(fclose(f))
-		err(1, "%s", buf);
-}
-
-void gpio_unexport(int gpio)
-{
-	FILE* f;
-	if(!(f=fopen("/sys/class/gpio/unexport", "w")))
-		err(1, "/sys/class/gpio/unexport");
-
-	if(fprintf(f, "%d\n", gpio) <= 0)
-		err(1, "/sys/class/gpio/unexport");
-
-	if(fclose(f))
-		err(1, "/sys/class/gpio/unexport");
-}
-
-void gpio_write(int gpio, int value)
-{
-	FILE* f;
-	char buf[256];
-	snprintf(buf, sizeof(buf), "/sys/class/gpio/gpio%d/value", gpio);
-
-	if(!(f=fopen(buf, "w")))
-		err(1, "%s", buf);
-
-	if(fprintf(f, "%d\n", value) <= 0)
-		err(1, "%s", buf);
-
-	if(fclose(f))
-		err(1, "%s", buf);
-}
-
 /* A shortcut for terminating the application */
 static void quit(int ret)
 {
 	assert(mainloop_api);
 	mainloop_api->quit(mainloop_api, ret);
+}
+
+void gpio_write(int value)
+{
+	if(!gpiod_line_is_requested(line))
+	{
+		if(gpiod_line_request_output(line, consumer, value))
+		{
+			warn("gpiod_line_request_output");
+			quit(1);
+		}
+	}
+	else
+	{
+		if(gpiod_line_set_value(line, value))
+		{
+			warn("gpiod_line_set_value");
+			quit(1);
+		}
+	}
 }
 
 void set_state(enum state newstate)
@@ -83,7 +51,7 @@ void set_state(enum state newstate)
 	if(oldstate == newstate || newstate == UNKNOWN)
 		return;
 
-	gpio_write(gpio, newstate == SUSPENDED ? 1 : 0);
+	gpio_write(newstate == SUSPENDED ? 0 : 1);
 
 	state = newstate;
 
@@ -206,21 +174,46 @@ int main(int argc, char *argv[])
 	pa_mainloop* m = NULL;
 	int ret = 1, r;
 	char *server = NULL;
+	struct gpiod_chip *chip;
+	int gpio;
+	char *chip_path;
 
 	if(argc < 3 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))
 	{
-		fprintf(stderr, "Usage: %s gpio sinkname [server]\n", argv[0]);
+		fprintf(stderr, "Usage: %s chip_path gpio sinkname [server]\n", argv[0]);
 		return 0;
 	}
 
-	gpio = atoi(argv[1]);
+	consumer = argv[0];
 
-	sinkname = argv[2];
+	chip_path = argv[1];
 
-	if(argc > 3)
-		server = argv[3];
+	gpio = atoi(argv[2]);
 
-	gpio_export(gpio);
+	sinkname = argv[3];
+
+	if(argc > 4)
+		server = argv[4];
+
+	chip = gpiod_chip_open(chip_path);
+	if (!chip)
+	{
+		warn("gpiod_chip_open");
+		goto quit;
+	}
+
+	line = gpiod_chip_get_line(chip, gpio);
+	if (!line)
+	{
+		warn("gpiod_chip_get_line");
+		goto quit;
+	}
+
+	if(gpiod_line_is_used(line))
+	{
+		fprintf(stderr, "Line is already used.\n");
+		goto quit;
+	}
 
 	/* Set up a new main loop */
 	if (!(m = pa_mainloop_new()))
@@ -267,9 +260,16 @@ int main(int argc, char *argv[])
 
 quit:
 
-	set_state(UNSUSPENDED);
+	if(line && gpiod_line_is_requested(line))
+	{
+		set_state(UNSUSPENDED);
+		gpiod_line_release(line);
+	}
 
-	gpio_unexport(gpio);
+	if(chip)
+	{
+		gpiod_chip_close(chip);
+	}
 
 	if (context)
 	{

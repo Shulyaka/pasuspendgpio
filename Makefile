@@ -4,7 +4,7 @@ else
 	CFLAGS+=-Wall
 endif
 
-LDFLAGS+=-lpulse
+LDFLAGS+=-lpulse -lgpiod
 
 .PHONY: clean all install
 
