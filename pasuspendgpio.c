@@ -7,7 +7,8 @@
 
 
 static char *sinkname = NULL;
-struct gpiod_line *line = NULL;
+struct gpiod_line_request *request = NULL;
+unsigned int gpio;
 uint32_t sindex = 0;
 const char *consumer = NULL;
 
@@ -25,36 +26,15 @@ static void quit(int ret)
 	mainloop_api->quit(mainloop_api, ret);
 }
 
-void gpio_write(int value)
-{
-	if(!gpiod_line_is_requested(line))
-	{
-		if(gpiod_line_request_output(line, consumer, value))
-		{
-			warn("gpiod_line_request_output");
-			quit(1);
-		}
-	}
-	else
-	{
-		if(gpiod_line_set_value(line, value))
-		{
-			warn("gpiod_line_set_value");
-			quit(1);
-		}
-	}
-}
-
 void set_state(enum state newstate)
 {
 	enum state oldstate = state;
 	if(oldstate == newstate || newstate == UNKNOWN)
 		return;
 
-	gpio_write(newstate == SUSPENDED ? 0 : 1);
+	gpiod_line_request_set_value(request, gpio, newstate == SUSPENDED ? GPIOD_LINE_VALUE_INACTIVE : GPIOD_LINE_VALUE_ACTIVE);
 
 	state = newstate;
-
 }
 
 static void sink_info_callback(pa_context *c, const pa_sink_info *i, int eol, void *userdata)
@@ -175,7 +155,9 @@ int main(int argc, char *argv[])
 	int ret = 1, r;
 	char *server = NULL;
 	struct gpiod_chip *chip;
-	int gpio;
+	struct gpiod_line_settings *settings = NULL;
+	struct gpiod_line_config *line_cfg = NULL;
+	struct gpiod_request_config *req_cfg = NULL;
 	char *chip_path;
 
 	if(argc < 3 || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))
@@ -202,18 +184,55 @@ int main(int argc, char *argv[])
 		goto quit;
 	}
 
-	line = gpiod_chip_get_line(chip, gpio);
-	if (!line)
+	settings = gpiod_line_settings_new();
+	if (!settings)
 	{
-		warn("gpiod_chip_get_line");
+		warn("gpiod_line_settings_new");
 		goto quit;
 	}
 
-	if(gpiod_line_is_used(line))
+	gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_OUTPUT);
+
+	line_cfg = gpiod_line_config_new();
+	if (!line_cfg)
 	{
-		fprintf(stderr, "Line is already used.\n");
+		warn("gpiod_line_config_new");
 		goto quit;
 	}
+
+	if (gpiod_line_config_add_line_settings(line_cfg, &gpio, 1, settings))
+	{
+		warn("gpiod_line_config_add_line_settings");
+		goto quit;
+	}
+
+	req_cfg = gpiod_request_config_new();
+	if (!req_cfg)
+	{
+		warn("gpiod_request_config_new");
+		goto quit;
+	}
+
+	gpiod_request_config_set_consumer(req_cfg, argv[0]);
+
+	request = gpiod_chip_request_lines(chip, req_cfg, line_cfg);
+	if (!request)
+	{
+		warn("gpiod_chip_request_lines");
+		goto quit;
+	}
+
+	gpiod_request_config_free(req_cfg);
+	req_cfg = NULL;
+
+	gpiod_line_config_free(line_cfg);
+	line_cfg = NULL;
+
+	gpiod_line_settings_free(settings);
+	settings = NULL;
+
+	gpiod_chip_close(chip);
+	chip = NULL;
 
 	/* Set up a new main loop */
 	if (!(m = pa_mainloop_new()))
@@ -260,15 +279,30 @@ int main(int argc, char *argv[])
 
 quit:
 
-	if(line && gpiod_line_is_requested(line))
+	if (req_cfg)
 	{
-		set_state(UNSUSPENDED);
-		gpiod_line_release(line);
+		gpiod_request_config_free(req_cfg);
 	}
 
-	if(chip)
+	if (line_cfg)
+	{
+		gpiod_line_config_free(line_cfg);
+	}
+
+	if (settings)
+	{
+		gpiod_line_settings_free(settings);
+	}
+
+	if (chip)
 	{
 		gpiod_chip_close(chip);
+	}
+
+	if (request)
+	{
+		set_state(UNSUSPENDED);
+		gpiod_line_request_release(request);
 	}
 
 	if (context)
